@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mahtab's Chat App</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Arial', sans-serif; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+    .chat-container { width: 100%; max-width: 1000px; height: 80vh; background: #fff; border-radius: 16px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    .chat-header { background: linear-gradient(to right, #4CAF50, #66bb6a); color: white; padding: 20px; text-align: center; display: flex; justify-content: space-between; align-items: center; border-radius: 16px 16px 0 0; }
+    .chat-header span { font-size: 2rem; font-weight: bold; letter-spacing: 1px; }
+    .chat-box { flex: 1; padding: 20px; overflow-y: auto; background: #fafafa; border-bottom: 2px solid #ddd; display: flex; flex-direction: column; }
+    .message { margin-bottom: 15px; display: flex; flex-direction: column; }
+    .message.user { align-items: flex-end; }
+    .message.friend { align-items: flex-start; }
+    .message p { padding: 12px 16px; border-radius: 12px; max-width: 75%; font-size: 1rem; word-wrap: break-word; }
+    .message.user p { background: #4CAF50; color: white; }
+    .message.friend p { background: #e6e6e6; color: #333; }
+    .chat-input { display: flex; padding: 15px; background: #fff; border-radius: 0 0 16px 16px; border-top: 2px solid #ddd; align-items: center; justify-content: space-between; position: relative; }
+    .chat-input input { width: 70%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; }
+    .chat-input button { padding: 12px; margin-left: 10px; background-color: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    .chat-input input[type="file"] { display: none; }
+    .emoji-picker { 
+      position: absolute; 
+      bottom: 70px; 
+      background: #fff; 
+      border: 1px solid #ddd; 
+      border-radius: 8px; 
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+      width: 250px; 
+      max-height: 300px; 
+      overflow-y: scroll; 
+      z-index: 1000; 
+      padding: 10px; 
+      display: none; 
+      flex-wrap: wrap;
+    }
+    .emoji-picker span { font-size: 1.5rem; cursor: pointer; margin: 5px; transition: transform 0.2s ease; }
+    .emoji-picker span:hover { transform: scale(1.2); }
+    
+    /* Dark Mode Styles */
+    .dark-mode {
+      background-color: #333;
+      color: white;
+    }
+
+    .dark-mode .chat-header {
+      background: linear-gradient(to right, #2c6b2f, #558b2f);
+    }
+
+    .dark-mode .chat-box {
+      background: #444;
+    }
+
+    .dark-mode .chat-input {
+      background: #333;
+      border-top: 2px solid #444;
+    }
+
+    .dark-mode .chat-input input {
+      background: #555;
+      color: white;
+      border: 1px solid #444;
+    }
+
+    .dark-mode .message.user p {
+      background: #2c6b2f;
+    }
+
+    .dark-mode .message.friend p {
+      background: #555;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="chat-container">
+    <div class="chat-header">
+      <span>Mahtab's Chat App</span>
+      <button onclick="toggleDarkMode()">🌙</button>
+    </div>
+    <div class="chat-box" id="chatBox"></div>
+    <div class="chat-input">
+      <input type="text" id="messageInput" placeholder="Type your message..." onkeydown="if(event.key === 'Enter') sendMessage()">
+      <button onclick="sendMessage()">Send</button>
+      <button id="emojiButton" style="margin-left: 10px; cursor: pointer;">😀</button>
+      <div id="emojiPicker" class="emoji-picker"></div>
+      <label for="fileInput" style="margin-left: 10px; cursor: pointer;">📁 Upload File</label>
+      <input type="file" id="fileInput" onchange="handleFileUpload()">
+    </div>
+  </div>
+
+  <script>
+    let isDarkMode = false;
+
+    // Initialize localStorage messages
+    if (!localStorage.getItem('messages')) {
+      localStorage.setItem('messages', JSON.stringify([]));
+    }
+
+    // Load messages from localStorage
+    function loadMessages() {
+      const messages = JSON.parse(localStorage.getItem('messages')) || [];
+      const chatBox = document.getElementById('chatBox');
+      chatBox.innerHTML = '';
+      messages.forEach(msg => addMessage(msg.content, msg.sender, msg.isFile));
+    }
+
+    // Add a message to the chat UI
+    function addMessage(content, sender, isFile = false) {
+      const messageContainer = document.createElement('div');
+      messageContainer.classList.add('message', sender);
+
+      const messageText = document.createElement('p');
+      if (isFile) {
+        const fileLink = document.createElement('a');
+        fileLink.href = content;
+        fileLink.target = "_blank";
+        fileLink.textContent = "Click to view file";
+        messageText.innerHTML = '';
+        messageText.appendChild(fileLink);
+      } else {
+        messageText.textContent = content;
+      }
+
+      messageContainer.appendChild(messageText);
+      document.getElementById('chatBox').appendChild(messageContainer);
+      document.getElementById('chatBox').scrollTop = document.getElementById('chatBox').scrollHeight;
+    }
+
+    // Send a message
+    function sendMessage() {
+      const messageInput = document.getElementById('messageInput');
+      const message = messageInput.value.trim();
+      if (message) {
+        const messages = JSON.parse(localStorage.getItem('messages')) || [];
+        messages.push({ content: message, sender: 'user', isFile: false });
+        localStorage.setItem('messages', JSON.stringify(messages));
+        addMessage(message, 'user');
+        simulateReply();
+        messageInput.value = '';
+      }
+    }
+
+    // Simulate a reply
+    function simulateReply() {
+      setTimeout(() => {
+        const reply = "Friend's reply here!";
+        const messages = JSON.parse(localStorage.getItem('messages')) || [];
+        messages.push({ content: reply, sender: 'friend', isFile: false });
+        localStorage.setItem('messages', JSON.stringify(messages));
+        addMessage(reply, 'friend');
+      }, 1000);
+    }
+
+    // Handle file upload
+    function handleFileUpload() {
+      const fileInput = document.getElementById('fileInput');
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const fileUrl = URL.createObjectURL(file);
+        const messages = JSON.parse(localStorage.getItem('messages')) || [];
+        messages.push({ content: fileUrl, sender: 'user', isFile: true });
+        localStorage.setItem('messages', JSON.stringify(messages));
+        addMessage(fileUrl, 'user', true);
+      }
+    }
+
+    // Toggle dark mode
+    function toggleDarkMode() {
+      isDarkMode = !isDarkMode;
+      document.body.classList.toggle('dark-mode', isDarkMode);
+    }
+
+    // Emoji list and picker logic
+    const emojiList = ["😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉", "😊", "😋", "😎", "😍", "😘", "😗", "😙", "😚", "🙂", "🤗", "🤩", "🤔", "🤨", "😐", "😑", "😶", "🙄", "😏", "😣", "😥", "😮", "🤐", "😯", "😪", "😫", "😴", "😌", "🤤", "😛", "😜", "😝"];
+    const emojiPicker = document.getElementById('emojiPicker');
+    const emojiButton = document.getElementById('emojiButton');
+
+    emojiList.forEach(emoji => {
+      const emojiSpan = document.createElement('span');
+      emojiSpan.textContent = emoji;
+      emojiSpan.onclick = () => addEmojiToInput(emoji);
+      emojiPicker.appendChild(emojiSpan);
+    });
+
+    emojiButton.onclick = () => {
+      emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'flex' : 'none';
+    };
+
+    function addEmojiToInput(emoji) {
+      const messageInput = document.getElementById('messageInput');
+      messageInput.value += emoji;
+      emojiPicker.style.display = 'none';
+    }
+
+    // Load messages on page load
+    loadMessages();
+  </script>
+</body>
+</html>
